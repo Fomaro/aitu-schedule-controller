@@ -86,3 +86,20 @@ try:
     BOT_TZ = ZoneInfo(TIMEZONE_NAME)
 except Exception:
     BOT_TZ = ZoneInfo("Europe/Moscow")
+
+# Настройки авто-синхронизации с Moodle (do.eduhouse.ru)
+MOODLE_URL = os.getenv("MOODLE_URL", "https://do.eduhouse.ru").strip()
+MOODLE_USERNAME = os.getenv("MOODLE_USERNAME", "9po13-23-6").strip()
+MOODLE_PASSWORD = os.getenv("MOODLE_PASSWORD", "aibohy9s").strip()
+MOODLE_AUTO_SYNC = os.getenv("MOODLE_AUTO_SYNC", "true").strip().lower() in ("true", "1", "yes")
+try:
+    MOODLE_START_HOUR = int(os.getenv("MOODLE_START_HOUR", "14"))
+except ValueError:
+    MOODLE_START_HOUR = 14
+try:
+    MOODLE_END_HOUR = int(os.getenv("MOODLE_END_HOUR", "21"))
+except ValueError:
+    MOODLE_END_HOUR = 21
+
+MOODLE_STATE_FILE = BASE_DIR / ".moodle_sync_state.json"
+

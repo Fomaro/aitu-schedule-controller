@@ -30,6 +30,7 @@ wheels/
 *.log
 controller.pid
 .controller_status.json
+.moodle_sync_state.json
 
 # IDE
 .idea/

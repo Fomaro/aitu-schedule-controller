@@ -16,6 +16,7 @@ from middlewares.auth import SuperAdminAuthMiddleware
 from middlewares.logging import AuditLoggingMiddleware
 from handlers import setup_handlers
 from services.watchdog import watchdog
+from services.moodle_service import moodle_service
 
 # Настройка красивого логирования
 logging.basicConfig(
@@ -30,6 +31,7 @@ async def register_controller_commands(bot: Bot):
     """Регистрирует подсказки команд в меню Telegram."""
     commands = [
         types.BotCommand(command="dashboard", description="👑 Главный пульт супер-администратора"),
+        types.BotCommand(command="sync", description="🌐 Синхронизация с do.eduhouse.ru"),
         types.BotCommand(command="restart", description="⚡️ Перезапустить бота расписания"),
         types.BotCommand(command="pull", description="📦 Подтянуть обновления из Git (Pull)"),
         types.BotCommand(command="replacements", description="⚠️ Управление заменами пар"),
@@ -62,6 +64,9 @@ async def on_startup(bot: Bot):
     # Запуск фонового мониторинга Watchdog
     await watchdog.start(bot)
 
+    # Запуск почасовой синхронизации с do.eduhouse.ru (с 14:00 до 21:00)
+    await moodle_service.start_scheduler(bot)
+
     # Оповещение супер-админов о запуске контроллера
     for admin_id in SUPERADMIN_IDS:
         try:
@@ -81,6 +86,7 @@ async def on_shutdown(bot: Bot):
     """Действия при остановке бота-контроллера."""
     logger.info("Остановка бота-контроллера и очистка ресурсов...")
     await watchdog.stop()
+    await moodle_service.stop_scheduler()
     if bot and bot.session:
         await bot.session.close()
     logger.info("Бот-контроллер успешно остановлен.")
