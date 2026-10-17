@@ -21,6 +21,12 @@ def get_system_metrics() -> dict:
     ram_used_gb = ram.used / (1024 ** 3)
     ram_percent = ram.percent
 
+    # Swap
+    swap = psutil.swap_memory()
+    swap_total_gb = swap.total / (1024 ** 3)
+    swap_used_gb = swap.used / (1024 ** 3)
+    swap_percent = swap.percent
+
     # Disk
     disk = psutil.disk_usage("/") if os.name != "nt" else psutil.disk_usage("C:\\")
     disk_total_gb = disk.total / (1024 ** 3)
@@ -43,6 +49,9 @@ def get_system_metrics() -> dict:
         "ram_total_gb": round(ram_total_gb, 1),
         "ram_used_gb": round(ram_used_gb, 1),
         "ram_percent": ram_percent,
+        "swap_total_gb": round(swap_total_gb, 1),
+        "swap_used_gb": round(swap_used_gb, 1),
+        "swap_percent": swap_percent,
         "disk_total_gb": round(disk_total_gb, 1),
         "disk_free_gb": round(disk_free_gb, 1),
         "disk_percent": disk_percent,

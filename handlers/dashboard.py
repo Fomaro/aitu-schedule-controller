@@ -77,6 +77,7 @@ async def render_dashboard_text() -> tuple[str, bool]:
         f"▫️ ОС: <code>{sys_metrics['os']}</code> · Py {sys_metrics['python_version']}\n"
         f"▫️ CPU хоста: <b>{sys_metrics['cpu_usage']}%</b> ({sys_metrics['cpu_cores']} cores)\n"
         f"▫️ RAM хоста: <b>{sys_metrics['ram_used_gb']}</b> / {sys_metrics['ram_total_gb']} ГБ ({sys_metrics['ram_percent']}%)\n"
+        f"{'▫️ Swap подкачка: <b>' + str(sys_metrics['swap_used_gb']) + '</b> / ' + str(sys_metrics['swap_total_gb']) + ' ГБ (' + str(sys_metrics['swap_percent']) + '%) 🟢' if sys_metrics.get('swap_total_gb', 0) > 0 else '▫️ Swap подкачка: <i>Не подключён</i> ⚠️'}\n"
         f"▫️ Диск свободно: <b>{sys_metrics['disk_free_gb']} ГБ</b> из {sys_metrics['disk_total_gb']} ГБ\n"
         f"▫️ Серверное время: <code>{sys_metrics['server_time']}</code>\n"
     )
