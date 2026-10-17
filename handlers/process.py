@@ -1,5 +1,9 @@
+import asyncio
+from datetime import datetime
 from aiogram import Router, F, types
 from aiogram.filters import Command
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from config import BOT_TZ
 from filters.superadmin import IsSuperAdminFilter
 from services.supervisor import supervisor
 from keyboards.process import get_process_keyboard
@@ -77,9 +81,31 @@ async def cb_proc_kill(call: types.CallbackQuery):
 # Команды
 @router.message(Command("restart"))
 async def cmd_restart(message: types.Message):
-    wait_msg = await message.answer("⏳ <i>Выполняю перезапуск целевого бота...</i>")
+    wait_msg = await message.answer("⏳ <i>Выполняю перезапуск целевого бота...</i>", disable_notification=True)
     ok, msg = await supervisor.restart()
-    await wait_msg.edit_text(f"{msg}\n\nИспользуйте /status для проверки состояния.")
+    await asyncio.sleep(1.5)
+    status = await supervisor.get_status()
+    now_time = datetime.now(BOT_TZ).strftime("%d.%m.%Y · %H:%M:%S")
+
+    status_icon = "🟢" if ok and status["is_running"] else "❌"
+    text = (
+        "🔄 <b>[ПЕРЕЗАПУСК ЦЕЛЕВОГО БОТА]</b>\n"
+        "──────────────────────────────\n"
+        f"{status_icon} <b>Результат:</b> {msg}\n\n"
+        "<blockquote>"
+        f"⚙️ <b>Режим службы:</b> <code>{status['mode'].upper()}</code>\n"
+        f"🆔 <b>PID процесса:</b> <code>{status['pid'] or 'active'}</code>\n"
+        f"📦 <b>Память:</b> <code>{status['memory_mb']} МБ</code> | CPU: <code>{status['cpu_percent']}%</code>\n"
+        f"🕒 <b>Время:</b> <code>{now_time}</code>"
+        "</blockquote>"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📊 Дашборд", callback_data="dashboard"),
+            InlineKeyboardButton(text="⚡️ Жизненный цикл", callback_data="menu_process")
+        ]
+    ])
+    await wait_msg.edit_text(text, reply_markup=kb)
 
 
 @router.message(Command("start_bot"))

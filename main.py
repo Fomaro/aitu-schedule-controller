@@ -6,17 +6,23 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.memory import MemoryStorage
 
+from datetime import datetime
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, LinkPreviewOptions
+
 from config import (
     CONTROLLER_BOT_TOKEN,
     SUPERADMIN_IDS,
     TARGET_BOT_DIR,
-    RUN_MODE
+    RUN_MODE,
+    BOT_TZ,
+    WATCHDOG_CHECK_INTERVAL
 )
 from middlewares.auth import SuperAdminAuthMiddleware
 from middlewares.logging import AuditLoggingMiddleware
 from handlers import setup_handlers
 from services.watchdog import watchdog
 from services.moodle_service import moodle_service
+from services.system_metrics import get_system_metrics
 
 # Настройка красивого логирования
 logging.basicConfig(
@@ -68,23 +74,71 @@ async def on_startup(bot: Bot):
     await moodle_service.start_scheduler(bot)
 
     # Оповещение супер-админов о запуске контроллера
+    metrics = get_system_metrics()
+    startup_time = datetime.now(BOT_TZ).strftime("%d.%m.%Y · %H:%M:%S")
+
+    start_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📊 Открыть Дашборд", callback_data="dashboard"),
+            InlineKeyboardButton(text="⚡️ Жизненный цикл", callback_data="menu_process")
+        ]
+    ])
+
+    startup_text = (
+        "🚀 <b>[СЕРВЕР МОНИТОРИНГА АКТИВИРОВАН]</b>\n"
+        "──────────────────────────────\n"
+        "👑 <b>AITU Schedule Supervisor запущен и взял систему под контроль</b>\n\n"
+        "<blockquote>"
+        f"🤖 <b>Целевой бот:</b> <code>{TARGET_BOT_DIR.name}</code>\n"
+        f"⚙️ <b>Режим управления:</b> <code>{RUN_MODE.upper()}</code>\n"
+        f"🛡 <b>Watchdog:</b> проверка каждые <code>{WATCHDOG_CHECK_INTERVAL} сек</code>\n"
+        f"🌐 <b>Синхронизация Moodle:</b> <code>do.eduhouse.ru</code> (14:00 – 21:00)\n"
+        f"🖥 <b>Сервер:</b> RAM <code>{metrics['ram_used_gb']} / {metrics['ram_total_gb']} ГБ</code> ({metrics['ram_percent']}%)\n"
+        f"💾 <b>Swap:</b> <code>{metrics['swap_used_gb']} / {metrics['swap_total_gb']} ГБ</code> | Диск: <code>{metrics['disk_free_gb']} ГБ свободно</code>\n"
+        f"⏱ <b>Аптайм VPS:</b> <code>{metrics['system_uptime']}</code>\n"
+        f"🕒 <b>Время запуска:</b> <code>{startup_time}</code>"
+        "</blockquote>\n\n"
+        "🔕 <i>Все сервисные уведомления настроены без звука.</i>"
+    )
+
     for admin_id in SUPERADMIN_IDS:
         try:
             await bot.send_message(
                 chat_id=admin_id,
-                text=(
-                    "👑 <b>Консоль супер-администратора запущена!</b>\n\n"
-                    "🤖 <i>AITU Schedule Controller активирован и ведёт наблюдение за основным ботом.</i>\n"
-                    "Для входа в панель отправьте /dashboard."
-                )
+                text=startup_text,
+                reply_markup=start_kb,
+                disable_notification=True,
+                link_preview_options=LinkPreviewOptions(is_disabled=True)
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Не удалось отправить уведомление о старте админу {admin_id}: {e}")
 
 
 async def on_shutdown(bot: Bot):
     """Действия при остановке бота-контроллера."""
     logger.info("Остановка бота-контроллера и очистка ресурсов...")
+
+    stop_time = datetime.now(BOT_TZ).strftime("%d.%m.%Y · %H:%M:%S")
+    shutdown_text = (
+        "🛑 <b>[СЕРВЕР МОНИТОРИНГА ОСТАНОВЛЕН]</b>\n"
+        "──────────────────────────────\n"
+        "⚠️ <b>AITU Schedule Supervisor переведён в оффлайн-режим.</b>\n\n"
+        "<blockquote>"
+        f"⏱ <b>Время остановки:</b> <code>{stop_time}</code>\n"
+        "ℹ️ <b>Статус:</b> Плановое завершение процесса службы (Shutdown)"
+        "</blockquote>"
+    )
+    for admin_id in SUPERADMIN_IDS:
+        try:
+            await bot.send_message(
+                chat_id=admin_id,
+                text=shutdown_text,
+                disable_notification=True,
+                link_preview_options=LinkPreviewOptions(is_disabled=True)
+            )
+        except Exception:
+            pass
+
     await watchdog.stop()
     await moodle_service.stop_scheduler()
     if bot and bot.session:

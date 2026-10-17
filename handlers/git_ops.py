@@ -1,6 +1,9 @@
 import html
+import asyncio
+from datetime import datetime
 from aiogram import Router, F, types
 from aiogram.filters import Command
+from config import BOT_TZ
 from filters.superadmin import IsSuperAdminFilter
 from services.git_service import git_service
 from services.supervisor import supervisor
@@ -87,10 +90,21 @@ async def cb_git_pull_restart(call: types.CallbackQuery):
 
     # Перезапускаем целевой бот
     re_ok, re_msg = await supervisor.restart()
+    await asyncio.sleep(1.5)
+    status = await supervisor.get_status()
+    now_time = datetime.now(BOT_TZ).strftime("%d.%m.%Y · %H:%M:%S")
+
     extra = (
-        "🚀 <b>Обновление и перезапуск завершены!</b>\n\n"
-        f"▫️ Git Pull: <pre>{html.escape(output[:600])}</pre>\n"
-        f"▫️ Перезапуск бота: <b>{re_msg}</b>"
+        "🚀 <b>[PULL & ПЕРЕЗАПУСК ЗАВЕРШЁН]</b>\n"
+        "──────────────────────────────\n"
+        "✅ <b>Код успешно обновлен из Git и процесс перезапущен!</b>\n\n"
+        "<blockquote>"
+        f"⚡️ <b>Перезапуск:</b> <b>{re_msg}</b>\n"
+        f"🆔 <b>Новый PID:</b> <code>{status['pid'] or 'active'}</code>\n"
+        f"📦 <b>Память:</b> <code>{status['memory_mb']} МБ</code> | CPU: <code>{status['cpu_percent']}%</code>\n"
+        f"🕒 <b>Время:</b> <code>{now_time}</code>"
+        "</blockquote>\n\n"
+        f"<b>Лог Git Pull:</b>\n<pre>{html.escape(output[:500])}</pre>"
     )
     if reqs_changed:
         extra += "\n\n⚠️ <i>Обновлены зависимости в requirements.txt!</i>"
