@@ -76,8 +76,9 @@ class GitService:
 
         # Проверка отставания от origin (без долгой блокировки)
         try:
-            rc_fetch, _, _ = await asyncio.wait_for(self._run_git_cmd("fetch", "--dry-run"), timeout=5.0)
-            rc_behind, behind_out, _ = await self._run_git_cmd("rev-list", f"HEAD..origin/{info['branch']}", "--count")
+            branch = info.get("branch", "main")
+            rc_fetch, _, _ = await asyncio.wait_for(self._run_git_cmd("fetch", "origin", branch), timeout=7.0)
+            rc_behind, behind_out, _ = await self._run_git_cmd("rev-list", f"HEAD..origin/{branch}", "--count")
             if rc_behind == 0 and behind_out.strip().isdigit():
                 info["behind_count"] = int(behind_out.strip())
         except Exception:
