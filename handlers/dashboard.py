@@ -9,6 +9,7 @@ from services.supervisor import supervisor
 from services.system_metrics import get_system_metrics
 from services.git_service import git_service
 from services.db_service import db_service
+from services.api_health_service import api_health_service
 from config import WATCHDOG_ENABLED, AUTO_RESTART_ON_CRASH
 
 router = Router(name="dashboard_router")
@@ -27,6 +28,8 @@ async def render_dashboard_text() -> tuple[str, bool]:
     mode_str = bot_stat["mode"].upper()
 
     # Секция целевого бота
+    api_stat = await api_health_service.get_quick_status()
+    api_detail_str = f" (порт {api_stat['port']}, {api_stat['latency_ms']} мс)" if api_stat['is_online'] else ""
     pid_str = f"<code>{bot_stat['pid']}</code>" if bot_stat['pid'] else "—"
     cpu_str = f"{bot_stat['cpu_percent']}%" if is_running else "—"
     mem_str = f"{bot_stat['memory_mb']} МБ" if is_running else "—"
@@ -65,6 +68,7 @@ async def render_dashboard_text() -> tuple[str, bool]:
         f"▫️ Режим: <code>{mode_str}</code> · PID: {pid_str}\n"
         f"▫️ Время непрерывной работы: {uptime_str}\n"
         f"▫️ Нагрузка процесса: CPU: <b>{cpu_str}</b> · RAM: <b>{mem_str}</b>\n"
+        f"▫️ REST API (Mini App): <b>{api_stat['icon']} {api_stat['text']}</b>{api_detail_str}\n"
         f"▫️ Watchdog монитор: <b>{wd_state}</b>{auto_heal}\n\n"
         f"📦 <b>Версия и Git репозиторий:</b>\n"
         f"▫️ Ветка: <code>{git_info['branch']}</code>{behind_text}\n"

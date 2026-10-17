@@ -7,6 +7,7 @@ from .roles import router as roles_router
 from .logs import router as logs_router
 from .broadcast import router as broadcast_router
 from .diagnostics import router as diagnostics_router
+from .api_health import router as api_health_router
 from .replacements import router as replacements_router
 from .documents import router as documents_router
 from .test_alerts import router as test_alerts_router
@@ -17,6 +18,7 @@ def setup_handlers(root_router: Router):
     """Регистрирует все дочерние роутеры контроллера в корневой роутер."""
     root_router.include_router(start_router)
     root_router.include_router(dashboard_router)
+    root_router.include_router(api_health_router)
     root_router.include_router(process_router)
     root_router.include_router(git_router)
     root_router.include_router(roles_router)

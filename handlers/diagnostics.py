@@ -8,6 +8,7 @@ from filters.superadmin import IsSuperAdminFilter
 from services.supervisor import supervisor
 from services.db_service import db_service
 from services.git_service import git_service
+from services.api_health_service import api_health_service
 from config import TARGET_DB_PATH, TARGET_PID_PATH, TARGET_STATUS_PATH, TARGET_BOT_DIR
 
 router = Router(name="diagnostics_router")
@@ -56,20 +57,12 @@ async def run_diagnostics() -> str:
     else:
         checks.append("⚠️ <b>Git репозиторий:</b> целевая папка не инициализирована как git")
 
-    # 6. Проверка локального HTTP Healthcheck сервера
-    http_ok = False
-    for port in (8089, 8080, 8000, 8081):
-        try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1.0)) as session:
-                async with session.get(f"http://127.0.0.1:{port}/health") as resp:
-                    if resp.status == 200:
-                        checks.append(f"✅ <b>HTTP Health Check (порт {port}):</b> отвечает 200 OK")
-                        http_ok = True
-                        break
-        except Exception:
-            continue
-    if not http_ok:
-        checks.append("⚪️ <b>HTTP Health Check:</b> сервер не отвечает (нормально, если бот выключен или порт отключен)")
+    # 6. Проверка локального REST API & Health Check сервера
+    api_stat = await api_health_service.get_quick_status()
+    if api_stat["is_online"]:
+        checks.append(f"✅ <b>REST API & Health Check (порт {api_stat['port']}):</b> 200 OK (версия <code>{api_stat['version']}</code>, {api_stat['latency_ms']} мс)")
+    else:
+        checks.append("⚪️ <b>REST API & Health Check:</b> сервер не отвечает (нормально, если бот выключен)")
 
     report = (
         "🧪 <b>ДИАГНОСТИЧЕСКИЙ ОТЧЁТ СИСТЕМЫ</b>\n"
@@ -87,9 +80,10 @@ async def cb_menu_diagnostics(call: types.CallbackQuery):
     report_text = await run_diagnostics()
 
     back_kb = InlineKeyboardBuilder()
+    back_kb.button(text="🩺 REST API Health", callback_data="menu_api_health")
     back_kb.button(text="🔄 Повторить диагностику", callback_data="menu_diagnostics")
     back_kb.button(text="◀️ В дашборд", callback_data="back_to_dashboard")
-    back_kb.adjust(1, 1)
+    back_kb.adjust(1, 1, 1)
 
     try:
         await call.message.edit_text(report_text, reply_markup=back_kb.as_markup())

@@ -37,6 +37,7 @@ async def register_controller_commands(bot: Bot):
     """Регистрирует подсказки команд в меню Telegram."""
     commands = [
         types.BotCommand(command="dashboard", description="👑 Главный пульт супер-администратора"),
+        types.BotCommand(command="api_health", description="🩺 Проверка REST API & Mini App"),
         types.BotCommand(command="sync", description="🌐 Синхронизация с do.eduhouse.ru"),
         types.BotCommand(command="restart", description="⚡️ Перезапустить бота расписания"),
         types.BotCommand(command="pull", description="📦 Подтянуть обновления из Git (Pull)"),

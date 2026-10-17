@@ -14,9 +14,10 @@ def get_dashboard_keyboard(is_running: bool = True) -> InlineKeyboardMarkup:
     builder.button(text="👥 Роли и старосты", callback_data="menu_roles")
     builder.button(text="📢 Рассылка объявлений", callback_data="menu_broadcast")
     builder.button(text="📜 Журнал логов", callback_data="menu_logs")
-    builder.button(text="🧪 Тесты алертов", callback_data="menu_test_alerts")
+    builder.button(text="🩺 REST API Health", callback_data="menu_api_health")
     builder.button(text="🔬 Диагностика", callback_data="menu_diagnostics")
+    builder.button(text="🧪 Тесты алертов", callback_data="menu_test_alerts")
     builder.button(text="🔄 Обновить статус", callback_data="refresh_dashboard")
 
-    builder.adjust(2, 2, 2, 2, 2, 1)
+    builder.adjust(2, 2, 2, 2, 2, 1, 1)
     return builder.as_markup()
