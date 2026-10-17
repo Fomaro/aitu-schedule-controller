@@ -1,0 +1,24 @@
+[Unit]
+Description=AITU College Schedule Supervisor & Controller Bot
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/aitu-schedule-controller
+EnvironmentFile=/opt/aitu-schedule-controller/.env
+ExecStart=/opt/aitu-schedule-controller/venv/bin/python main.py
+Restart=always
+RestartSec=3
+KillMode=process
+TimeoutStopSec=10
+
+# Безопасность и лимиты
+LimitNOFILE=65535
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitu-controller
+
+[Install]
+WantedBy=multi-user.target
