@@ -50,7 +50,11 @@ async def cb_roles_list_elevated(call: types.CallbackQuery):
     if not officers:
         text = "👥 <b>Список пользователей с особыми ролями пуст.</b>"
     else:
-        lines = ["👥 <b>ПОЛЬЗОВАТЕЛИ С РАСШИРЕННЫМИ РОЛЯМИ:</b>", "────────────────────────"]
+        lines = [
+            "👥 <b>ПОЛЬЗОВАТЕЛИ С РАСШИРЕННЫМИ РОЛЯМИ:</b>",
+            "────────────────────────",
+            "👑 <b>Superadmins (2):</b> <code>1019252177, 792569339</code>\n"
+        ]
         for u in officers:
             u_name = f"@{u['username']}" if u.get("username") else (u.get("full_name") or str(u["user_id"]))
             role_ru = {
