@@ -240,32 +240,72 @@ class DatabaseService:
             logger.error(f"Ошибка получения замен: {e}")
             return []
 
+    def _detect_course(self, group_name: str | None) -> int:
+        if not group_name:
+            return 4
+        import re
+        m = re.search(r"-([1-4])", group_name)
+        if m:
+            return int(m.group(1))
+        m2 = re.search(r"[^0-9]([1-4])\d", group_name)
+        if m2:
+            return int(m2.group(1))
+        return 4
+
+    async def ensure_group(self, group_name: str, course: int | None = None) -> bool:
+        """Гарантирует существование группы в базе данных."""
+        if not await self.is_db_available() or not group_name:
+            return False
+        grp = group_name.strip().upper()
+        if course is None:
+            course = self._detect_course(grp)
+        try:
+            async with await self._get_conn() as conn:
+                await conn.execute(
+                    "INSERT OR IGNORE INTO groups (name, course, is_active) VALUES (?, ?, 1)",
+                    (grp, course)
+                )
+                await conn.commit()
+                return True
+        except Exception as e:
+            logger.error(f"Ошибка сохранения группы {grp}: {e}")
+            return False
+
     async def add_replacement(
         self,
-        date_str: str,
-        pair_num: int,
-        action_type: str,
+        date_str: str | None = None,
+        pair_num: int = 1,
+        action_type: str = "replace",
         group_name: str | None = None,
         subject: str = "",
         room: str = "—",
         teacher: str = "—",
         raw_text: str = "",
-        created_by: int = 0
+        created_by: int = 0,
+        target_date: str | None = None
     ) -> tuple[bool, str]:
         """Добавляет замену или отмену пары."""
+        final_date = date_str or target_date
+        if not final_date:
+            return False, "Дата замены не указана."
+
         if not await self.is_db_available():
             return False, "База данных schedule_bot.db недоступна."
+
+        if group_name:
+            await self.ensure_group(group_name)
+
         try:
             async with await self._get_conn() as conn:
                 if group_name:
                     await conn.execute(
                         "DELETE FROM replacements WHERE date = ? AND pair_num = ? AND group_name = ?",
-                        (date_str, pair_num, group_name)
+                        (final_date, pair_num, group_name)
                     )
                 else:
                     await conn.execute(
                         "DELETE FROM replacements WHERE date = ? AND pair_num = ? AND group_name IS NULL",
-                        (date_str, pair_num)
+                        (final_date, pair_num)
                     )
 
                 await conn.execute(
@@ -273,13 +313,49 @@ class DatabaseService:
                     INSERT INTO replacements (group_name, date, pair_num, action_type, subject, room, teacher, raw_text, created_by, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     """,
-                    (group_name, date_str, pair_num, action_type, subject, room, teacher, raw_text, created_by)
+                    (group_name, final_date, pair_num, action_type, subject, room, teacher, raw_text, created_by)
                 )
                 await conn.commit()
                 return True, "Замена успешно сохранена в базу данных."
         except Exception as e:
             logger.error(f"Ошибка добавления замены: {e}")
             return False, str(e)
+
+    async def add_or_update_lesson(
+        self,
+        group_name: str,
+        weekday: int,
+        pair_num: int,
+        subject: str,
+        parity: str = "both",
+        room: str = "—",
+        teacher: str = "—"
+    ) -> bool:
+        """Добавляет или обновляет регулярную пару в расписании."""
+        if not await self.is_db_available():
+            return False
+        grp = group_name.strip().upper()
+        await self.ensure_group(grp)
+
+        try:
+            async with await self._get_conn() as conn:
+                # Удаляем старую пару с тем же днем, номером и четностью
+                await conn.execute(
+                    "DELETE FROM lessons WHERE group_name = ? AND weekday = ? AND pair_num = ? AND (parity = ? OR parity = 'both')",
+                    (grp, weekday, pair_num, parity)
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO lessons (group_name, weekday, pair_num, parity, subject, room, teacher)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (grp, weekday, pair_num, parity, subject, room, teacher)
+                )
+                await conn.commit()
+                return True
+        except Exception as e:
+            logger.error(f"Ошибка добавления пары {grp} w{weekday} p{pair_num}: {e}")
+            return False
 
     async def delete_replacement(self, rep_id: int) -> bool:
         """Удаляет замену по ID."""

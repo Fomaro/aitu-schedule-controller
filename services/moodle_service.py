@@ -293,25 +293,35 @@ class MoodleSyncService:
             if len(rows) < 3:
                 continue
 
+            current_groups = []
             for row_idx in range(len(rows)):
                 cells = [c.text.strip() for c in rows[row_idx].cells]
                 if len(cells) < 4:
                     continue
 
-                # Ищем номер группы в первой ячейке или в строке
-                grp_match = group_pattern.search(cells[0])
-                if not grp_match:
+                # Проверяем, не является ли строка частью шапки таблицы
+                cell0_low = cells[0].lower()
+                cell1_low = cells[1].lower() if len(cells) > 1 else ""
+                if any(h in cell0_low or h in cell1_low for h in ["группа", "пара", "урок", "дисциплина"]):
+                    current_groups = []
                     continue
-                group_name = grp_match.group(1).upper()
 
-                # Номер пары
+                # Ищем номер(а) группы в первой ячейке (поддерживает список через запятую: "9КС-41, 9КС-42к")
+                found_grps = [g.upper() for g in group_pattern.findall(cells[0])]
+                if found_grps:
+                    current_groups = found_grps
+                
+                # Если в ячейке пусто из-за объединенных строк Word, используем группы из предыдущей строки
+                if not current_groups:
+                    continue
+
+                # Номер(а) пары (поддерживает "1,2" или "2,3" или "1-2")
                 pair_raw = cells[1] if len(cells) > 1 else "1"
-                # Обработка нескольких пар через запятую (например "1,2")
                 pair_nums = [int(p.strip()) for p in re.findall(r'\b[1-6]\b', pair_raw)]
                 if not pair_nums:
                     pair_nums = [1]
 
-                # Извлечение данных: если 8 колонок (стандартный шаблон АИТУ)
+                # Извлечение данных: если 8 колонок (стандартный официальный приказ АИТУ)
                 # Col 0: Группа, Col 1: Пара
                 # Col 2: Снято Предмет, Col 3: Снято Препод, Col 4: Снято Ауд
                 # Col 5: Назначено Предмет, Col 6: Назначено Препод, Col 7: Назначено Ауд
@@ -321,7 +331,6 @@ class MoodleSyncService:
                     assigned_teacher = cells[6]
                     assigned_room = cells[7]
                 elif len(cells) >= 6:
-                    # Упрощенная таблица (Группа, Пара, Замена, Преподаватель, Ауд)
                     canceled_subject = ""
                     assigned_subject = cells[2]
                     assigned_teacher = cells[3] if len(cells) > 3 else "—"
@@ -330,9 +339,7 @@ class MoodleSyncService:
                     continue
 
                 # Определяем тип: замена или отмена
-                is_cancelled = False
                 if assigned_subject in ("-", "—", "", "нет", "нет пары") and canceled_subject not in ("-", "—", ""):
-                    is_cancelled = True
                     action_type = "cancel"
                     subject_to_show = f"Отменено: {canceled_subject}"
                     teacher_to_show = "—"
@@ -343,19 +350,20 @@ class MoodleSyncService:
                     teacher_to_show = assigned_teacher if assigned_teacher not in ("-", "—") else "—"
                     room_to_show = assigned_room if assigned_room not in ("-", "—") else "—"
 
-                for p_num in pair_nums:
-                    item = {
-                        "group_name": group_name,
-                        "pair_num": p_num,
-                        "action_type": action_type,
-                        "subject": subject_to_show,
-                        "teacher": teacher_to_show,
-                        "room": room_to_show,
-                        "raw_text": " | ".join(cells)
-                    }
-                    result["items"].append(item)
-                    result["groups_affected"].add(group_name)
-                    result["total_count"] += 1
+                for grp in current_groups:
+                    for p_num in pair_nums:
+                        item = {
+                            "group_name": grp,
+                            "pair_num": p_num,
+                            "action_type": action_type,
+                            "subject": subject_to_show,
+                            "teacher": teacher_to_show,
+                            "room": room_to_show,
+                            "raw_text": " | ".join(cells)
+                        }
+                        result["items"].append(item)
+                        result["groups_affected"].add(grp)
+                        result["total_count"] += 1
 
         return result
 
@@ -429,16 +437,17 @@ class MoodleSyncService:
 
         # 5. Записываем замены в общую базу данных через db_service
         for item in parsed.get("items", []):
-            success = await db_service.add_replacement(
-                target_date=actual_date_str,
+            ok, _ = await db_service.add_replacement(
+                date_str=actual_date_str,
                 pair_num=item["pair_num"],
+                action_type=item["action_type"],
                 group_name=item["group_name"],
                 subject=item["subject"],
                 room=item["room"],
                 teacher=item["teacher"],
-                action_type=item["action_type"]
+                raw_text=item.get("raw_text", "")
             )
-            if success:
+            if ok:
                 applied_count += 1
 
         # Фиксируем статус
@@ -494,6 +503,87 @@ class MoodleSyncService:
                     logger.warning(f"Не удалось отправить уведомление админу {admin_id}: {e}")
 
         return report
+
+    async def sync_all_schedules(self, bot: Any = None) -> dict[str, Any]:
+        """
+        Скачивает все семестровые расписания курсов (1-4 курс) с do.eduhouse.ru,
+        парсит все группы, числители/знаменатели и пары, и сохраняет в общую базу schedule_bot.db.
+        """
+        from services.excel_parser import parse_schedule_excel, detect_course_from_group
+
+        result = {
+            "success": False,
+            "error": None,
+            "files_success": 0,
+            "files_total": 0,
+            "groups_count": 0,
+            "groups_list": [],
+            "lessons_count": 0
+        }
+
+        # 1. Получаем список ссылок на файлы
+        doc_data = await self.fetch_available_documents()
+        if not doc_data.get("success"):
+            result["error"] = doc_data.get("error", "Не удалось подключиться к сайту.")
+            return result
+
+        schedules = doc_data.get("schedules", [])
+        if not schedules:
+            result["error"] = "Файлы расписаний (.xls / .xlsx) не найдены на сайте."
+            return result
+
+        result["files_total"] = len(schedules)
+        downloads_dir = BASE_DIR / "downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+
+        total_groups = set()
+        total_lessons = 0
+        files_success = 0
+
+        # 2. Скачиваем и парсим каждый файл расписания
+        for s in schedules:
+            url = s["url"]
+            fname = s["filename"]
+            local_path = downloads_dir / f"moodle_{fname}"
+
+            ok = await self.download_file(url, local_path)
+            if not ok:
+                logger.error(f"Не удалось скачать расписание {fname}")
+                continue
+
+            try:
+                parsed = await asyncio.to_thread(parse_schedule_excel, local_path)
+            except Exception as e:
+                logger.error(f"Ошибка парсинга {fname}: {e}")
+                continue
+
+            # Сохраняем группы в БД
+            for grp in parsed.get("groups_found", []):
+                course = detect_course_from_group(grp)
+                await db_service.ensure_group(grp, course=course)
+                total_groups.add(grp)
+
+            # Сохраняем все уроки в БД
+            for lesson in parsed.get("lessons", []):
+                await db_service.add_or_update_lesson(
+                    group_name=lesson["group_name"],
+                    weekday=lesson["weekday"],
+                    pair_num=lesson["pair_num"],
+                    subject=lesson["subject"],
+                    parity=lesson["parity"],
+                    room=lesson.get("room", "—"),
+                    teacher=lesson.get("teacher", "—")
+                )
+                total_lessons += 1
+
+            files_success += 1
+
+        result["success"] = (files_success > 0)
+        result["files_success"] = files_success
+        result["groups_count"] = len(total_groups)
+        result["groups_list"] = sorted(list(total_groups))
+        result["lessons_count"] = total_lessons
+        return result
 
     async def start_scheduler(self, bot: Any):
         """

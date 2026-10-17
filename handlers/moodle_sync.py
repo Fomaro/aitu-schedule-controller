@@ -112,6 +112,34 @@ async def cb_moodle_check_now(call: types.CallbackQuery, bot: Bot):
     await _render_moodle_dashboard(call, extra_text=extra)
 
 
+@router.message(Command("sync_schedules"))
+@router.callback_query(F.data == "moodle_sync_schedules")
+async def cb_moodle_sync_schedules(event: types.Message | types.CallbackQuery, bot: Bot):
+    if isinstance(event, types.CallbackQuery):
+        await event.answer("⏳ Скачиваю и парсю расписания 1-4 курсов...", show_alert=False)
+    
+    report = await moodle_service.sync_all_schedules(bot=bot)
+
+    if not report.get("success"):
+        extra = f"❌ <b>Ошибка синхронизации расписания:</b>\n<code>{html.escape(str(report.get('error', 'Неизвестная ошибка')))}</code>"
+    else:
+        grps_sample = ", ".join(report.get("groups_list", [])[:12])
+        if len(report.get("groups_list", [])) > 12:
+            grps_sample += f" и ещё {len(report.get('groups_list', [])) - 12} групп"
+
+        extra = (
+            "🎉 <b>СЕМЕСТРОВОЕ РАСПИСАНИЕ УСПЕШНО СИНХРОНИЗИРОВАНО!</b>\n"
+            "──────────────────────────────\n"
+            f"📥 Загружено файлов расписаний: <b>{report.get('files_success')} из {report.get('files_total')}</b>\n"
+            f"👥 Найдено и обновлено групп: <b>{report.get('groups_count')}</b>\n"
+            f"📚 Внесено регулярных пар в базу: <b>{report.get('lessons_count')}</b>\n"
+            f"👥 Группы: <code>{grps_sample}</code>\n\n"
+            "<i>Все пары с числителями, знаменателями, звонками и аудиториями записаны в базу данных!</i>"
+        )
+
+    await _render_moodle_dashboard(event, extra_text=extra)
+
+
 @router.callback_query(F.data == "moodle_list_files")
 async def cb_moodle_list_files(call: types.CallbackQuery):
     await call.answer("Сканирую файлы на сайте...")
