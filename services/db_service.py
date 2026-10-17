@@ -17,10 +17,22 @@ class DatabaseService:
     def __init__(self, db_path: Path = TARGET_DB_PATH):
         self.db_path = db_path
 
-    async def _get_conn(self) -> aiosqlite.Connection:
-        conn = await aiosqlite.connect(self.db_path)
-        conn.row_factory = aiosqlite.Row
-        return conn
+    class _ConnContext:
+        def __init__(self, db_path: Path):
+            self.db_path = db_path
+            self.conn = None
+
+        async def __aenter__(self):
+            self.conn = await aiosqlite.connect(self.db_path)
+            self.conn.row_factory = aiosqlite.Row
+            return self.conn
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            if self.conn:
+                await self.conn.close()
+
+    async def _get_conn(self):
+        return self._ConnContext(self.db_path)
 
     async def is_db_available(self) -> bool:
         """Проверяет существование и доступность файла БД."""
