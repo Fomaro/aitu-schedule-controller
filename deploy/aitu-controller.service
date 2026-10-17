@@ -7,7 +7,8 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=/opt/aitu-schedule-controller
-EnvironmentFile=/opt/aitu-schedule-controller/.env
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/opt/aitu-schedule-controller/.env
 ExecStart=/opt/aitu-schedule-controller/venv/bin/python main.py
 Restart=always
 RestartSec=3
