@@ -149,7 +149,7 @@ class ApiHealthService:
                 "path": "/api/health",
                 "label": "Healthcheck",
                 "validate": lambda d: d.get("status") == "ok",
-                "extract": lambda d: f"v{d.get('version', '')} · ok"
+                "extract": lambda d: f"{d.get('version', 'v3.x')} · {d.get('status', 'ok')}"
             },
             {
                 "path": "/api/groups",
@@ -177,8 +177,9 @@ class ApiHealthService:
             },
             {
                 "path": "/",
+                "url": f"{self.public_base_url}/",
                 "label": "Mini App Web Bundle",
-                "validate": lambda text: "Telegram.WebApp" in text or "root" in text,
+                "validate": lambda text: "root" in text,
                 "extract": lambda text: "Vite SPA сборка активна",
                 "is_html": True
             }
@@ -187,7 +188,7 @@ class ApiHealthService:
         async with aiohttp.ClientSession(timeout=timeout) as session:
             for tc in test_cases:
                 results["total_tested"] += 1
-                target_url = f"{base_api_url}{tc['path']}"
+                target_url = tc.get("url") or f"{base_api_url}{tc['path']}"
                 t_start = time.perf_counter()
                 try:
                     async with session.get(target_url) as resp:
