@@ -1,0 +1,43 @@
+PROPRIETARY AND CONFIDENTIAL SOFTWARE LICENSE
+
+Copyright (c) 2026 AITU Schedule Bot Developers. All rights reserved.
+
+NOTICE: This software, its source code, configuration files, supervisor 
+services, watchdogs, API, documentation, and related materials ("Software") 
+are proprietary and confidential property of the original authors/creators.
+
+1. DEPLOYMENT AND HOSTING RESTRICTION (ЗАПРЕТ НА РАЗВЁРТЫВАНИЕ):
+Deployment, hosting, installation, configuration, or execution of this Software, 
+in whole or in part, on any public or private server, cloud infrastructure, 
+VPS, container environment, cluster, or local machine is STRICTLY AND EXCLUSIVELY 
+RESERVED FOR THE ORIGINAL CREATORS / AUTHORS OF THIS PROJECT, OR THIRD PARTIES 
+HOLDING DIRECT, EXPRESS PRIOR WRITTEN PERMISSION FROM THE CREATORS.
+
+NO INDIVIDUAL, STUDENT, ENTITY, EDUCATIONAL INSTITUTION, OR THIRD PARTY IS 
+AUTHORIZED TO DEPLOY, SELF-HOST, RUN, OR OPERATE AN INSTANCE OF THIS SOFTWARE 
+WITHOUT SUCH WRITTEN PERMISSION.
+
+2. PERMITTED USE:
+Access and operation of this Software is strictly restricted to designated 
+super-administrators authorized by the original creators to monitor and manage 
+the official AITU College Schedule ecosystem infrastructure.
+
+3. GENERAL RESTRICTIONS:
+Except as expressly authorized in writing by the copyright holders:
+- You may NOT copy, clone, reproduce, modify, fork, merge, publish, distribute, 
+  sublicense, sell, rent, lease, or transfer this Software or any portion thereof.
+- You may NOT reverse engineer, decompile, or disassemble any binary, compiled, 
+  or obfuscated components of this Software.
+- You may NOT deploy, host, mirror, or execute this Software on any unauthorized 
+  server, network, or environment.
+- Any unauthorized deployment, running, reproduction, distribution, or public display of this 
+  Software constitutes copyright infringement and is subject to civil, administrative, 
+  and criminal liability under applicable copyright and intellectual property laws.
+
+4. DISCLAIMER OF WARRANTY:
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
+PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT 
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION 
+OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE 
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
