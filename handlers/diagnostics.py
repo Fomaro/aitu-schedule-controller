@@ -56,16 +56,20 @@ async def run_diagnostics() -> str:
     else:
         checks.append("⚠️ <b>Git репозиторий:</b> целевая папка не инициализирована как git")
 
-    # 6. Проверка локального HTTP Healthcheck сервера (порт 8080)
-    try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2.0)) as session:
-            async with session.get("http://127.0.0.1:8080/health") as resp:
-                if resp.status == 200:
-                    checks.append("✅ <b>HTTP Health Check (порт 8080):</b> отвечает 200 OK")
-                else:
-                    checks.append(f"⚠️ <b>HTTP Health Check:</b> ответил кодом {resp.status}")
-    except Exception:
-        checks.append("⚪️ <b>HTTP Health Check (порт 8080):</b> сервер не отвечает (нормально, если бот выключен)")
+    # 6. Проверка локального HTTP Healthcheck сервера
+    http_ok = False
+    for port in (8089, 8080, 8000, 8081):
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1.0)) as session:
+                async with session.get(f"http://127.0.0.1:{port}/health") as resp:
+                    if resp.status == 200:
+                        checks.append(f"✅ <b>HTTP Health Check (порт {port}):</b> отвечает 200 OK")
+                        http_ok = True
+                        break
+        except Exception:
+            continue
+    if not http_ok:
+        checks.append("⚪️ <b>HTTP Health Check:</b> сервер не отвечает (нормально, если бот выключен или порт отключен)")
 
     report = (
         "🧪 <b>ДИАГНОСТИЧЕСКИЙ ОТЧЁТ СИСТЕМЫ</b>\n"

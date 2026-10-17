@@ -25,21 +25,36 @@ if raw_superadmin_ids:
 
 # Путь к каталогу целевого бота (aitu-schedule-bot)
 raw_target_dir = os.getenv("TARGET_BOT_DIR", "").strip()
-if not raw_target_dir:
-    # По умолчанию ищем соседнюю папку с проектом расписания
-    candidate_1 = BASE_DIR.parent / "aitu-schudele"
-    candidate_2 = BASE_DIR.parent / "aitu-schedule-bot"
-    candidate_3 = Path("/opt/aitu-schedule-bot")
-    if candidate_1.exists():
-        TARGET_BOT_DIR = candidate_1.resolve()
-    elif candidate_2.exists():
-        TARGET_BOT_DIR = candidate_2.resolve()
-    elif candidate_3.exists():
-        TARGET_BOT_DIR = candidate_3.resolve()
+resolved_target: Path | None = None
+
+if raw_target_dir:
+    p = Path(raw_target_dir).expanduser()
+    if not p.is_absolute():
+        p = (BASE_DIR / p).resolve()
+    if p.exists():
+        resolved_target = p
+
+if resolved_target is None:
+    # Поиск существующей директории бота (VPS или локально)
+    candidates = [
+        Path("/opt/aitu-schedule-bot"),
+        BASE_DIR.parent / "aitu-schedule-bot",
+        BASE_DIR.parent / "aitu-schudele",
+        Path("/opt/aitu-schudele"),
+    ]
+    for cand in candidates:
+        if cand.exists():
+            resolved_target = cand.resolve()
+            break
+
+if resolved_target is None:
+    # Fallback по умолчанию
+    if sys.platform == "win32":
+        resolved_target = (BASE_DIR.parent / "aitu-schudele").resolve()
     else:
-        TARGET_BOT_DIR = candidate_1.resolve()
-else:
-    TARGET_BOT_DIR = Path(raw_target_dir).expanduser().resolve()
+        resolved_target = Path("/opt/aitu-schedule-bot")
+
+TARGET_BOT_DIR = resolved_target
 
 # Пути к файлам целевого бота
 TARGET_DB_PATH = TARGET_BOT_DIR / "schedule_bot.db"
