@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import aiosqlite
 from config import TARGET_DB_PATH
+from services.excel_parser import canonical_group_name, get_group_variants, normalize_group_name
 
 logger = logging.getLogger(__name__)
 
@@ -195,12 +196,14 @@ class DatabaseService:
                         recipients.extend([r["chat_id"] for r in rows])
 
                 elif target_type == "group" and group_name:
+                    variants = get_group_variants(group_name)
+                    placeholders = ', '.join(['?'] * len(variants))
                     # Чаты группы
-                    async with conn.execute("SELECT chat_id FROM chat_bindings WHERE group_name = ?", (group_name,)) as cur:
+                    async with conn.execute(f"SELECT chat_id FROM chat_bindings WHERE group_name IN ({placeholders})", tuple(variants)) as cur:
                         rows = await cur.fetchall()
                         recipients.extend([r["chat_id"] for r in rows])
                     # Студенты группы
-                    async with conn.execute("SELECT user_id FROM users WHERE group_name = ?", (group_name,)) as cur:
+                    async with conn.execute(f"SELECT user_id FROM users WHERE group_name IN ({placeholders})", tuple(variants)) as cur:
                         rows = await cur.fetchall()
                         recipients.extend([r["user_id"] for r in rows])
 
@@ -256,7 +259,7 @@ class DatabaseService:
         """Гарантирует существование группы в базе данных."""
         if not await self.is_db_available() or not group_name:
             return False
-        grp = group_name.strip().upper()
+        grp = canonical_group_name(group_name) or group_name.strip()
         if course is None:
             course = self._detect_course(grp)
         try:
@@ -292,15 +295,18 @@ class DatabaseService:
         if not await self.is_db_available():
             return False, "База данных schedule_bot.db недоступна."
 
-        if group_name:
-            await self.ensure_group(group_name)
+        canon_grp = canonical_group_name(group_name) if group_name else None
+        if canon_grp:
+            await self.ensure_group(canon_grp)
 
         try:
             async with await self._get_conn() as conn:
-                if group_name:
+                if canon_grp:
+                    variants = get_group_variants(canon_grp)
+                    placeholders = ', '.join(['?'] * len(variants))
                     await conn.execute(
-                        "DELETE FROM replacements WHERE date = ? AND pair_num = ? AND group_name = ?",
-                        (final_date, pair_num, group_name)
+                        f"DELETE FROM replacements WHERE date = ? AND pair_num = ? AND group_name IN ({placeholders})",
+                        (final_date, pair_num, *variants)
                     )
                 else:
                     await conn.execute(
@@ -313,7 +319,7 @@ class DatabaseService:
                     INSERT INTO replacements (group_name, date, pair_num, action_type, subject, room, teacher, raw_text, created_by, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     """,
-                    (group_name, final_date, pair_num, action_type, subject, room, teacher, raw_text, created_by)
+                    (canon_grp, final_date, pair_num, action_type, subject, room, teacher, raw_text, created_by)
                 )
                 await conn.commit()
                 return True, "Замена успешно сохранена в базу данных."
@@ -334,15 +340,18 @@ class DatabaseService:
         """Добавляет или обновляет регулярную пару в расписании."""
         if not await self.is_db_available():
             return False
-        grp = group_name.strip().upper()
+        grp = canonical_group_name(group_name) or group_name.strip()
         await self.ensure_group(grp)
+
+        variants = get_group_variants(grp)
+        placeholders = ', '.join(['?'] * len(variants))
 
         try:
             async with await self._get_conn() as conn:
-                # Удаляем старую пару с тем же днем, номером и четностью
+                # Удаляем старую пару с тем же днем, номером и четностью для любых вариантов написания группы
                 await conn.execute(
-                    "DELETE FROM lessons WHERE group_name = ? AND weekday = ? AND pair_num = ? AND (parity = ? OR parity = 'both')",
-                    (grp, weekday, pair_num, parity)
+                    f"DELETE FROM lessons WHERE group_name IN ({placeholders}) AND weekday = ? AND pair_num = ? AND (parity = ? OR parity = 'both')",
+                    (*variants, weekday, pair_num, parity)
                 )
                 await conn.execute(
                     """

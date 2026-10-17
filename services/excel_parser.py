@@ -20,16 +20,85 @@ ROOM_REGEX = re.compile(r'(?:каб\.?|ауд\.?|№)?\s*(\b\d{2,4}[а-яА-Я]?
 TEACHER_REGEX = re.compile(r'\b([А-ЯЁ][а-яё]+)\s+([А-ЯЁ]\.\s*[А-ЯЁ]\.?)\b')
 
 
-def normalize_group_name(name: str | None) -> str:
-    """Приводит название группы к каноническому виду (например, 9ПО-43к)."""
-    if not name:
+def canonical_group_name(group_name: str | None) -> str:
+    """
+    Приводит название группы к каноническому виду (например, 9ПО-43к).
+    Автоматически преобразует визуально похожие латинские буквы в кириллицу.
+    """
+    if not group_name:
         return ""
-    clean = name.strip()
-    m = re.match(r"^(\d{1,2})([а-яА-Яa-zA-Z]+)-(\d{1,3})([а-яА-Яa-zA-Z]?)$", clean)
+    clean = group_name.strip()
+
+    lat_to_cyr = {
+        'A': 'А', 'a': 'а',
+        'B': 'В', 'b': 'в',
+        'C': 'С', 'c': 'с',
+        'E': 'Е', 'e': 'е',
+        'H': 'Н', 'h': 'н',
+        'K': 'К', 'k': 'к',
+        'M': 'М', 'm': 'м',
+        'O': 'О', 'o': 'о',
+        'P': 'Р', 'p': 'р',
+        'T': 'Т', 't': 'т',
+        'X': 'Х', 'x': 'х',
+        'Y': 'У', 'y': 'у',
+    }
+    trans = "".join(lat_to_cyr.get(ch, ch) for ch in clean)
+    m = re.match(r"^(\d{1,2})\s*([а-яА-Яa-zA-Z]+)\s*[-–—_]?\s*(\d{1,3})\s*([а-яА-Яa-zA-Z]?)$", trans)
     if m:
         c, dept, num, letter = m.groups()
-        return f"{c}{dept.upper()}-{num}{letter.lower() if letter else ''}"
-    return clean.upper()
+        suffix = letter.lower() if letter else ""
+        return f"{c}{dept.upper()}-{num}{suffix}"
+    return trans
+
+
+def normalize_group_name(name: str | None) -> str:
+    """Алиас для обратной совместимости."""
+    return canonical_group_name(name)
+
+
+def get_group_variants(group_name: str | None) -> list[str]:
+    """Возвращает все варианты написания группы для SQL-запросов."""
+    if not group_name:
+        return []
+    variants = set()
+    raw = group_name.strip()
+    if not raw:
+        return []
+
+    variants.add(raw)
+    variants.add(raw.upper())
+    variants.add(raw.lower())
+
+    canon = canonical_group_name(raw)
+    if canon:
+        variants.add(canon)
+        variants.add(canon.upper())
+        variants.add(canon.lower())
+
+        if canon[-1].isalpha():
+            base = canon[:-1]
+            last = canon[-1]
+            variants.add(f"{base}{last.lower()}")
+            variants.add(f"{base}{last.upper()}")
+            variants.add(f"{base.upper()}{last.lower()}")
+            variants.add(f"{base.upper()}{last.upper()}")
+            variants.add(f"{base.lower()}{last.lower()}")
+            variants.add(f"{base.lower()}{last.upper()}")
+
+        no_dash = canon.replace("-", "")
+        variants.add(no_dash)
+        variants.add(no_dash.upper())
+        variants.add(no_dash.lower())
+
+    return [v for v in variants if v]
+
+
+def is_same_group(grp1: str | None, grp2: str | None) -> bool:
+    """Сравнивает два названия учебных групп без учёта регистра и латиницы/кириллицы."""
+    if not grp1 or not grp2:
+        return False
+    return canonical_group_name(grp1).lower() == canonical_group_name(grp2).lower()
 
 
 def detect_course_from_group(grp_name: str | None) -> int:

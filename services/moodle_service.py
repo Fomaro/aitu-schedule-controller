@@ -24,6 +24,7 @@ from config import (
     BASE_DIR
 )
 from services.db_service import db_service
+from services.excel_parser import canonical_group_name, normalize_group_name
 
 logger = logging.getLogger("controller.moodle")
 
@@ -307,7 +308,7 @@ class MoodleSyncService:
                     continue
 
                 # Ищем номер(а) группы в первой ячейке (поддерживает список через запятую: "9КС-41, 9КС-42к")
-                found_grps = [g.upper() for g in group_pattern.findall(cells[0])]
+                found_grps = [canonical_group_name(g) for g in group_pattern.findall(cells[0])]
                 if found_grps:
                     current_groups = found_grps
                 
