@@ -10,8 +10,9 @@ def get_git_keyboard(behind_count: int = 0) -> InlineKeyboardMarkup:
     builder.button(text=pull_label, callback_data="git_pull_restart")
     builder.button(text="⬇️ Только Git Pull", callback_data="git_pull_only")
     builder.button(text="📋 Последние коммиты", callback_data="git_recent_commits")
+    builder.button(text="🧹 Очистить (Hard Reset)", callback_data="git_reset_hard")
     builder.button(text="🔍 Проверить статус Git", callback_data="git_check_status")
     builder.button(text="◀️ В главное меню", callback_data="back_to_dashboard")
 
-    builder.adjust(2, 2, 1)
+    builder.adjust(2, 2, 2)
     return builder.as_markup()

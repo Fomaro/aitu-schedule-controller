@@ -16,7 +16,15 @@ async def _render_git_menu(event: types.Message | types.CallbackQuery, extra_tex
     behind = git_info.get("behind_count", 0)
     kb = get_git_keyboard(behind_count=behind)
 
-    status_icon = "⚠️ Есть незакоммиченные локальные изменения" if git_info.get("is_dirty") else "Чисто (всё закоммичено) ✅"
+    dirty_files = git_info.get("dirty_files", [])
+    if dirty_files:
+        files_str = "\n".join(f"  ▫️ <code>{html.escape(f)}</code>" for f in dirty_files[:5])
+        if len(dirty_files) > 5:
+            files_str += f"\n  ▫️ <i>...и ещё {len(dirty_files) - 5} файлов</i>"
+        status_icon = f"⚠️ <b>Есть незакоммиченные файлы ({len(dirty_files)}):</b>\n{files_str}"
+    else:
+        status_icon = "Чисто (всё закоммичено) ✅"
+
     behind_desc = f"\n⚠️ <b>Внимание:</b> удалённый репозиторий опережает локальный на <b>{behind}</b> коммитов!" if behind > 0 else ""
 
     lines = [
@@ -26,7 +34,7 @@ async def _render_git_menu(event: types.Message | types.CallbackQuery, extra_tex
         f"▫️ Последний коммит: <code>{git_info['commit']}</code> ({git_info['date']})",
         f"▫️ Автор коммита: <code>{git_info['author']}</code>",
         f"▫️ Сообщение: <i>{html.escape(git_info['message'])}</i>",
-        f"▫️ Статус рабочей папки: {status_icon}{behind_desc}"
+        f"▫️ Статус рабочей папки:\n{status_icon}{behind_desc}"
     ]
 
     if extra_text:
@@ -99,6 +107,20 @@ async def cb_git_recent_commits(call: types.CallbackQuery):
         text = "<i>Не удалось получить историю коммитов.</i>"
 
     await _render_git_menu(call, extra_text=text)
+
+
+@router.callback_query(F.data == "git_reset_hard")
+async def cb_git_reset_hard(call: types.CallbackQuery):
+    await call.answer("Выполняю очистку рабочего дерева...")
+    ok, output = await git_service.reset_hard()
+    extra = (
+        "✅ <b>Рабочее дерево успешно очищено (git reset --hard & clean)!</b>\n\n"
+        f"<pre>{html.escape(output[:1000])}</pre>"
+    ) if ok else (
+        "❌ <b>Ошибка при очистке:</b>\n\n"
+        f"<pre>{html.escape(output[:1000])}</pre>"
+    )
+    await _render_git_menu(call, extra_text=extra)
 
 
 # Команды

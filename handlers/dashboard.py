@@ -33,7 +33,14 @@ async def render_dashboard_text() -> tuple[str, bool]:
     uptime_str = f"<code>{bot_stat['uptime']}</code>" if is_running else "—"
 
     # Секция Git
-    git_status_icon = "⚠️ Есть незакоммиченные файлы" if git_info.get("is_dirty") else "Чисто ✅"
+    dirty_files = git_info.get("dirty_files", [])
+    if dirty_files:
+        preview = ", ".join(dirty_files[:2])
+        if len(dirty_files) > 2:
+            preview += f" (+{len(dirty_files) - 2})"
+        git_status_icon = f"⚠️ Изменено ({preview})"
+    else:
+        git_status_icon = "Чисто ✅"
     behind_text = ""
     if git_info.get("behind_count", 0) > 0:
         behind_text = f" (⬇️ Отстаёт на <b>{git_info['behind_count']}</b> коммитов)"

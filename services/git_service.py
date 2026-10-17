@@ -70,9 +70,33 @@ class GitService:
             info["author"] = author
             info["date"] = date_str
 
-        # Проверка наличия незакоммиченных изменений
+        # Проверка наличия незакоммиченных изменений (с фильтрацией runtime-данных)
         rc_status, status_out, _ = await self._run_git_cmd("status", "--porcelain")
-        info["is_dirty"] = bool(status_out.strip())
+        dirty_items = []
+        if rc_status == 0 and status_out.strip():
+            runtime_names = {
+                "subscribers.json", "zameny.json", "user_settings.json",
+                ".bot_status.json", "bot.pid", "bot.log", "schedule_bot.db",
+                "schedule_bot.db-wal", "schedule_bot.db-shm", "schedule_bot.db-journal"
+            }
+            for line in status_out.splitlines():
+                line_s = line.strip()
+                if not line_s:
+                    continue
+                parts = line_s.split(maxsplit=1)
+                fname = parts[1].strip() if len(parts) > 1 else line_s
+                base_fname = Path(fname).name
+                if (
+                    base_fname in runtime_names
+                    or fname.startswith("downloads/")
+                    or fname.startswith("__pycache__")
+                    or fname.endswith(".pyc")
+                ):
+                    continue
+                dirty_items.append(fname)
+
+        info["is_dirty"] = bool(dirty_items)
+        info["dirty_files"] = dirty_items
 
         # Проверка отставания от origin (без долгой блокировки)
         try:
@@ -109,6 +133,14 @@ class GitService:
                 reqs_changed = True
 
         return success, output, reqs_changed
+
+    async def reset_hard(self) -> tuple[bool, str]:
+        """Сбрасывает локальные изменения (git reset --hard HEAD && git clean -fd)."""
+        rc1, out1, err1 = await self._run_git_cmd("reset", "--hard", "HEAD")
+        rc2, out2, err2 = await self._run_git_cmd("clean", "-fd")
+        ok = (rc1 == 0 and rc2 == 0)
+        output = (out1 + "\n" + out2 + "\n" + err1 + "\n" + err2).strip()
+        return ok, output
 
     async def get_recent_commits(self, limit: int = 5) -> list[str]:
         """Возвращает список последних N коммитов."""
