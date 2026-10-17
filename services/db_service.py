@@ -220,5 +220,80 @@ class DatabaseService:
         # Удаляем дубликаты
         return list(dict.fromkeys(recipients))
 
+    async def get_active_replacements(self, limit: int = 50) -> list[dict]:
+        """Возвращает список актуальных замен и отмен пар."""
+        if not await self.is_db_available():
+            return []
+        try:
+            async with await self._get_conn() as conn:
+                query = """
+                    SELECT id, group_name, date, pair_num, action_type, subject, room, teacher, raw_text, created_at
+                    FROM replacements
+                    WHERE date >= date('now', '-1 day')
+                    ORDER BY date ASC, pair_num ASC
+                    LIMIT ?
+                """
+                async with conn.execute(query, (limit,)) as cur:
+                    rows = await cur.fetchall()
+                    return [dict(r) for r in rows]
+        except Exception as e:
+            logger.error(f"Ошибка получения замен: {e}")
+            return []
+
+    async def add_replacement(
+        self,
+        date_str: str,
+        pair_num: int,
+        action_type: str,
+        group_name: str | None = None,
+        subject: str = "",
+        room: str = "—",
+        teacher: str = "—",
+        raw_text: str = "",
+        created_by: int = 0
+    ) -> tuple[bool, str]:
+        """Добавляет замену или отмену пары."""
+        if not await self.is_db_available():
+            return False, "База данных schedule_bot.db недоступна."
+        try:
+            async with await self._get_conn() as conn:
+                if group_name:
+                    await conn.execute(
+                        "DELETE FROM replacements WHERE date = ? AND pair_num = ? AND group_name = ?",
+                        (date_str, pair_num, group_name)
+                    )
+                else:
+                    await conn.execute(
+                        "DELETE FROM replacements WHERE date = ? AND pair_num = ? AND group_name IS NULL",
+                        (date_str, pair_num)
+                    )
+
+                await conn.execute(
+                    """
+                    INSERT INTO replacements (group_name, date, pair_num, action_type, subject, room, teacher, raw_text, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    """,
+                    (group_name, date_str, pair_num, action_type, subject, room, teacher, raw_text, created_by)
+                )
+                await conn.commit()
+                return True, "Замена успешно сохранена в базу данных."
+        except Exception as e:
+            logger.error(f"Ошибка добавления замены: {e}")
+            return False, str(e)
+
+    async def delete_replacement(self, rep_id: int) -> bool:
+        """Удаляет замену по ID."""
+        if not await self.is_db_available():
+            return False
+        try:
+            async with await self._get_conn() as conn:
+                await conn.execute("DELETE FROM replacements WHERE id = ?", (rep_id,))
+                await conn.commit()
+                return True
+        except Exception as e:
+            logger.error(f"Ошибка удаления замены {rep_id}: {e}")
+            return False
+
 
 db_service = DatabaseService()
+

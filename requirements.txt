@@ -7,3 +7,5 @@ aiofiles>=23.2.1
 aiosqlite>=0.20.0
 sqlalchemy>=2.0.30
 psutil>=5.9.8
+openpyxl>=3.1.5
+python-docx>=1.1.2

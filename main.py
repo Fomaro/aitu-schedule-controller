@@ -32,10 +32,13 @@ async def register_controller_commands(bot: Bot):
         types.BotCommand(command="dashboard", description="👑 Главный пульт супер-администратора"),
         types.BotCommand(command="restart", description="⚡️ Перезапустить бота расписания"),
         types.BotCommand(command="pull", description="📦 Подтянуть обновления из Git (Pull)"),
-        types.BotCommand(command="logs", description="📜 Просмотр последних логов и ошибок"),
+        types.BotCommand(command="replacements", description="⚠️ Управление заменами пар"),
+        types.BotCommand(command="upload", description="📄 Загрузка расписания (.docx / .xlsx)"),
         types.BotCommand(command="roles", description="👥 Управление администраторами и старостами"),
         types.BotCommand(command="broadcast", description="📢 Экстренная рассылка студентам"),
-        types.BotCommand(command="diagnostics", description="🧪 Диагностика систем и компонентов"),
+        types.BotCommand(command="logs", description="📜 Просмотр последних логов и ошибок"),
+        types.BotCommand(command="test_alerts", description="🧪 Тестирование рассылок"),
+        types.BotCommand(command="diagnostics", description="🔬 Диагностика систем и компонентов"),
         types.BotCommand(command="status", description="🔍 Экспресс-проверка статуса"),
     ]
     try:

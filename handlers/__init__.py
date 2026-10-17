@@ -7,6 +7,9 @@ from .roles import router as roles_router
 from .logs import router as logs_router
 from .broadcast import router as broadcast_router
 from .diagnostics import router as diagnostics_router
+from .replacements import router as replacements_router
+from .documents import router as documents_router
+from .test_alerts import router as test_alerts_router
 
 
 def setup_handlers(root_router: Router):
@@ -16,6 +19,9 @@ def setup_handlers(root_router: Router):
     root_router.include_router(process_router)
     root_router.include_router(git_router)
     root_router.include_router(roles_router)
+    root_router.include_router(replacements_router)
+    root_router.include_router(documents_router)
+    root_router.include_router(test_alerts_router)
     root_router.include_router(logs_router)
     root_router.include_router(broadcast_router)
     root_router.include_router(diagnostics_router)
