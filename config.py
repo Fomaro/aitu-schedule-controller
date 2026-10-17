@@ -12,9 +12,9 @@ BASE_DIR = Path(__file__).resolve().parent
 # Токен контроллера
 CONTROLLER_BOT_TOKEN = os.getenv("CONTROLLER_BOT_TOKEN", "").strip()
 
-# Список супер-администраторов
-DEFAULT_SUPERADMIN_IDS = {1019252177, 792569339}
-SUPERADMIN_IDS: set[int] = set(DEFAULT_SUPERADMIN_IDS)
+# Список супер-администраторов (задаются в .env: SUPERADMIN_IDS=12345678,87654321)
+DEFAULT_SUPERADMIN_IDS: set[int] = set()
+SUPERADMIN_IDS: set[int] = set()
 
 raw_superadmin_ids = os.getenv("SUPERADMIN_IDS", "").strip()
 if raw_superadmin_ids:
