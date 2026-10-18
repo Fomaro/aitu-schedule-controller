@@ -12,7 +12,7 @@ def get_dashboard_keyboard(is_running: bool = True) -> InlineKeyboardMarkup:
     builder.button(text="🌐 do.eduhouse.ru", callback_data="menu_moodle_sync")
     builder.button(text="📄 Загрузка (.xlsx/.docx)", callback_data="menu_schedule_upload")
     builder.button(text="👥 Роли и старосты", callback_data="menu_roles")
-    builder.button(text="📢 Рассылка объявлений", callback_data="menu_broadcast")
+    builder.button(text="📢 Сообщение в группы", callback_data="menu_broadcast")
     builder.button(text="📜 Журнал логов", callback_data="menu_logs")
     builder.button(text="🩺 REST API Health", callback_data="menu_api_health")
     builder.button(text="🔬 Диагностика", callback_data="menu_diagnostics")

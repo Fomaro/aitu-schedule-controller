@@ -191,6 +191,71 @@ class DatabaseService:
         except Exception:
             return []
 
+    async def get_courses(self) -> list[int]:
+        """Возвращает список доступных курсов (обычно [1, 2, 3, 4])."""
+        if not await self.is_db_available():
+            return [1, 2, 3, 4]
+        try:
+            async with await self._get_conn() as conn:
+                async with conn.execute("SELECT DISTINCT course FROM groups WHERE course IS NOT NULL ORDER BY course ASC") as cur:
+                    rows = await cur.fetchall()
+                    courses = [r[0] for r in rows if r[0] is not None]
+                    return courses if courses else [1, 2, 3, 4]
+        except Exception:
+            return [1, 2, 3, 4]
+
+    async def get_groups_by_course(self, course: int) -> list[str]:
+        """Возвращает список групп указанного курса."""
+        if not await self.is_db_available():
+            return []
+        try:
+            async with await self._get_conn() as conn:
+                async with conn.execute("SELECT name FROM groups WHERE course = ? ORDER BY name ASC", (course,)) as cur:
+                    rows = await cur.fetchall()
+                    return [r["name"] for r in rows]
+        except Exception:
+            return []
+
+    async def get_target_stats(self, target_type: str, group_name: str | None = None) -> dict:
+        """
+        Возвращает детализированную статистику получателей:
+        {"total": int, "chats": int, "users": int, "group_name": str | None}
+        """
+        recipients = await self.get_broadcast_recipients(target_type=target_type, group_name=group_name)
+        stats = {
+            "total": len(recipients),
+            "chats": 0,
+            "users": 0,
+            "group_name": group_name
+        }
+        if not await self.is_db_available():
+            return stats
+
+        try:
+            async with await self._get_conn() as conn:
+                if target_type == "chats":
+                    stats["chats"] = len(recipients)
+                elif target_type == "group" and group_name:
+                    variants = get_group_variants(group_name)
+                    placeholders = ', '.join(['?'] * len(variants))
+                    async with conn.execute(f"SELECT count(DISTINCT chat_id) FROM chat_bindings WHERE group_name IN ({placeholders})", tuple(variants)) as cur:
+                        row = await cur.fetchone()
+                        stats["chats"] = row[0] if row else 0
+                    async with conn.execute(f"SELECT count(DISTINCT user_id) FROM users WHERE group_name IN ({placeholders})", tuple(variants)) as cur:
+                        row = await cur.fetchone()
+                        stats["users"] = row[0] if row else 0
+                else:
+                    async with conn.execute("SELECT count(DISTINCT chat_id) FROM chat_bindings") as cur:
+                        row = await cur.fetchone()
+                        stats["chats"] = row[0] if row else 0
+                    async with conn.execute("SELECT count(DISTINCT user_id) FROM users") as cur:
+                        row = await cur.fetchone()
+                        stats["users"] = row[0] if row else 0
+        except Exception as e:
+            logger.error(f"Ошибка получения статистики получателей: {e}")
+
+        return stats
+
     async def get_broadcast_recipients(self, target_type: str, group_name: str | None = None) -> list[int]:
         """
         Возвращает список уникальных chat_id / user_id для рассылки:
