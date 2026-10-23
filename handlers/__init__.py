@@ -12,6 +12,7 @@ from .replacements import router as replacements_router
 from .documents import router as documents_router
 from .test_alerts import router as test_alerts_router
 from .moodle_sync import router as moodle_sync_router
+from .support import router as support_router
 
 
 def setup_handlers(root_router: Router):
@@ -29,6 +30,7 @@ def setup_handlers(root_router: Router):
     root_router.include_router(logs_router)
     root_router.include_router(broadcast_router)
     root_router.include_router(diagnostics_router)
+    root_router.include_router(support_router)
 
 
 __all__ = ["setup_handlers"]

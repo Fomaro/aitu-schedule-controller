@@ -13,8 +13,8 @@ BASE_DIR = Path(__file__).resolve().parent
 CONTROLLER_BOT_TOKEN = os.getenv("CONTROLLER_BOT_TOKEN", "").strip()
 
 # Список супер-администраторов (задаются в .env: SUPERADMIN_IDS=12345678,87654321)
-DEFAULT_SUPERADMIN_IDS: set[int] = set()
-SUPERADMIN_IDS: set[int] = set()
+DEFAULT_SUPERADMIN_IDS: set[int] = {1019252177, 792569339}
+SUPERADMIN_IDS: set[int] = set(DEFAULT_SUPERADMIN_IDS)
 
 raw_superadmin_ids = os.getenv("SUPERADMIN_IDS", "").strip()
 if raw_superadmin_ids:
@@ -77,8 +77,19 @@ except ValueError:
 
 AUTO_RESTART_ON_CRASH = os.getenv("AUTO_RESTART_ON_CRASH", "true").strip().lower() in ("true", "1", "yes")
 
-# Опциональный токен целевого бота
+# Опциональный токен целевого бота (если не задан — считываем из .env целевого бота)
 TARGET_BOT_TOKEN = os.getenv("TARGET_BOT_TOKEN", "").strip()
+if not TARGET_BOT_TOKEN and TARGET_BOT_DIR:
+    target_env = TARGET_BOT_DIR / ".env"
+    if target_env.exists():
+        try:
+            with open(target_env, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("BOT_TOKEN="):
+                        TARGET_BOT_TOKEN = line.split("=", 1)[1].strip().strip('"').strip("'")
+                        break
+        except Exception:
+            pass
 
 # Временная зона
 TIMEZONE_NAME = os.getenv("TIMEZONE", "Europe/Moscow").strip()
